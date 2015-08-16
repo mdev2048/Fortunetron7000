@@ -5,6 +5,13 @@
 CRGB leds[NUM_STRIPS][NUM_LEDS_PER_STRIP];
 const int ledStripPin = 5;
 
+int crystalBallState = 0;
+int crystalBallMax = 8;
+
+
+
+
+
 
 
 
@@ -44,6 +51,9 @@ long unsigned int pause = 5000;
 
 boolean lockLow = true;
 boolean takeLowTime;  
+
+int curCrystalBallVal = 0;
+int crystalBallThreshold = 880;
 
 
 // etc
@@ -190,13 +200,15 @@ void read_distance_sensor (){ //from http://www.maxbotix.com/articles/085-pt3.ht
   inches = pulse/147;
   //change inches to centimetres
   cm = inches * 2.54;
+  /*
   Serial.print(inches);
   Serial.print("in, ");
   Serial.print(cm);
   Serial.print("cm");
   Serial.println();
+  */
 
-  if(cm > 50 && cm < 70) {
+  if( cm < 70) {
 display_eyes(true);
   } else {
 display_eyes(false);
@@ -214,6 +226,30 @@ void read_motion_sensor() {
   }
 }
 
+int AnalogMaxima (int AnalogCh, int Threshold, int Delay){    
+  int check1;                                  //variable to store first reading.
+  int check2;                                  //variable to store second reading.
+
+  check1 = analogRead(AnalogCh);               //Assing first reading 
+  delay(Delay);                                //wait
+  check2 = analogRead (AnalogCh);              //Assing second reading.
+  if (check1>check2){                          //If voltage is DECREASING (no maxima)...
+    return 1025;                               //end loop and return 1025.
+  }
+  else{
+    while (analogRead(AnalogCh)>Threshold){     //While above threshold and RISING
+
+      check1 = check2;                          //Write previous last reading as current first for comparison
+      check2 = analogRead(AnalogCh);            //Assing second reading.
+      delay(Delay/2);                           //wait,and loop unless...                
+       
+      if (check1>check2){                       //voltage drop is observed
+        return check1;                          //if so return highest value :)
+
+      }
+    }
+  }
+} 
 
 void display_eyes(bool tgtOutput) {
   if(tgtOutput) {
@@ -249,16 +285,38 @@ void display_eyes(bool tgtOutput) {
 
 
 }
+
+int read_crystal_ball_sensor() {
+  int cb_read_avg = 0;
+  for(int i=0;i<10;i++) {
+    cb_read_avg += analogRead(0);
+    delay(10);
+    
+  }
+  return cb_read_avg/10;
+}
 void loop() {
 
-  tempCounter += 1;
-  tempCounter = tempCounter % 10;
  
-  blinkLedStrip(tempCounter,10);
+
   delay(100);               // wait for a second
 
   read_distance_sensor();
 
-  Serial.println(analogRead(0));
+  curCrystalBallVal = read_crystal_ball_sensor();
+  Serial.println(curCrystalBallVal);
+  if(curCrystalBallVal < crystalBallThreshold) {
+    Serial.print("making it brighter ");
+    crystalBallState += 1;
+    crystalBallState = min(crystalBallState,crystalBallMax);
+    Serial.println(crystalBallState);
+  
+  } else {
+
+    crystalBallState -= 1;
+    crystalBallState = max(crystalBallState,0);
+  }
+  blinkLedStrip(crystalBallState,crystalBallMax);
+  
 
 }
